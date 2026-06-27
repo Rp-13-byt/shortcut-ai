@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 ShortCut AI - Production Launchpad
 
-## Getting Started
+ShortCut AI is a high-performance, production-grade SaaS application designed for automated video analysis, transcription, clipping, rendering, and distribution. Engineered with a robust, decoupled microservices architecture, it handles high-throughput video processing jobs reliably using background queues.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🛠️ Tech Stack & Architecture
+
+- **Frontend/Backend**: [Next.js 16 (App Router)](https://nextjs.org/) + React 19 (compiled with Turbopack)
+- **Database ORM**: [Prisma v6](https://prisma.io) with PostgreSQL
+- **Task Queue & Workers**: [BullMQ](https://bullmq.io/) backed by [Redis](https://redis.io/)
+- **Authentication**: [Clerk](https://clerk.dev) (Session tokens & Serverless middleware)
+- **Billing & Subscriptions**: [Stripe](https://stripe.com) (Sub-second webhook handling & subscription management)
+- **Object Storage**: Cloudflare R2 / AWS S3 (multipart uploads for video chunks)
+- **AI Processing**: Google Gemini API for transcript analysis and metadata generation
+- **Video Tools**: `ffmpeg` + `yt-dlp` for raw asset downloading and frame rendering
+
+---
+
+## 📂 Project Structure
+
+```text
+├── .github/workflows/   # CI/CD Workflows (GitHub Actions)
+├── docker/              # Production-grade Dockerfiles
+│   ├── app.Dockerfile   # Next.js standalone server
+│   └── worker.Dockerfile# Background video processors
+├── prisma/              # Prisma Database schemas & migrations
+├── scripts/             # Utility and load testing scripts
+└── src/
+    ├── app/             # Next.js application routes & API endpoints
+    ├── env.ts           # Zod schema validation for configurations
+    ├── lib/             # Shared helpers (Prisma, Redis, Logging, Idempotency)
+    ├── server/          # Decoupled core backend services
+    │   ├── events/      # In-process pub/sub event bus
+    │   ├── services/    # Asset & Subscription Managers
+    │   └── workers/     # BullMQ worker handlers (Download, Transcribe, Render)
+    └── tests/           # Integration & End-to-End test suites
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Getting Started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. Prerequisites
 
-## Learn More
+Ensure you have the following installed on your machine:
+- **Node.js**: v20 or newer
+- **Docker & Docker Compose**: For local infrastructure services
+- **PostgreSQL & Redis** (if running bare metal instead of Docker)
 
-To learn more about Next.js, take a look at the following resources:
+### 2. Environment Configuration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Clone the environment template and configure your local credentials:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cp .env.example .env
+```
 
-## Deploy on Vercel
+Ensure the following configuration variables are set in `.env`:
+- `DATABASE_URL`: Connection string for PostgreSQL
+- `REDIS_HOST` & `REDIS_PORT`: Configuration for BullMQ queue state
+- `CLERK_SECRET_KEY` & `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk Auth keys
+- `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`: Stripe payment keys
+- `GEMINI_API_KEY`: API credentials for Google Gemini model
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 💻 Local Development
+
+### 1. Install Dependencies
+
+Install all package dependencies. This will also automatically run `prisma generate` to compile the database client types:
+
+```bash
+npm install
+```
+
+### 2. Database Migrations
+
+Apply local database schema changes and verify validation:
+
+```bash
+npx prisma validate
+npx prisma db push
+```
+
+### 3. Run Development Servers
+
+Start the Next.js application and the background workers concurrently:
+
+**Start Next.js (Port 3000)**:
+```bash
+npm run dev
+```
+
+**Start BullMQ Background Workers**:
+```bash
+npm run start:worker
+```
+
+---
+
+## 🐳 Docker Deployment (Production-Ready)
+
+This repository includes highly optimized multi-stage Dockerfiles designed for secure, rootless, and lightweight production environments.
+
+### 1. Build Production Images
+
+```bash
+# Build the Next.js Standalone web server
+docker build -f docker/app.Dockerfile -t shortcut-app:latest .
+
+# Build the Background processor worker
+docker build -f docker/worker.Dockerfile -t shortcut-worker:latest .
+```
+
+### 2. Run Entire Environment Locally via Compose
+
+Ensure you populate your `.env` variables, then spin up PostgreSQL, Redis, Next.js, and the worker container together:
+
+```bash
+docker-compose up --build
+```
+
+---
+
+## 🛡️ Code Quality & CI/CD
+
+Our CI/CD pipeline runs on every push and PR to `main` via GitHub Actions:
+- **Type Checking**: Strict type checking using TypeScript compiler (`npm run typecheck`).
+- **ESLint**: Linting checks and standard enforcement (`npm run lint`).
+- **Prisma**: Validates schema syntax and formatting prior to builds (`npx prisma validate`).
+- **Docker**: Pre-compiles and builds Docker containers to prevent image degradation.
