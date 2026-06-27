@@ -9,6 +9,8 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,10 +22,10 @@ jobs:
         run: npm ci
 
       - name: Type Check
-        run: npm run typecheck || echo "Typecheck skipped/mocked"
+        run: npm run typecheck
 
       - name: Lint
-        run: npm run lint || echo "Lint skipped/mocked"
+        run: npm run lint
 
       - name: Prisma Validate
         run: npx prisma validate
