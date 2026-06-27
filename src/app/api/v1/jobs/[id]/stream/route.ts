@@ -5,13 +5,13 @@ import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const jobId = params.id;
+  const { id: jobId } = await params;
 
   // Verify ownership
   const job = await prisma.videoJob.findUnique({ where: { id: jobId } });

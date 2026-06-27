@@ -124,17 +124,4 @@ export class AssetManager {
     }
   }
 
-  /**
-   * Safely deletes a local temporary file, ignoring ENOENT (file not found) errors.
-   */
-  static async cleanupLocalFile(filePath: string): Promise<void> {
-    try {
-      await fs.unlink(filePath);
-      console.log(`[AssetManager] Cleaned up temporary file: ${filePath}`);
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') {
-        console.error(`[AssetManager] Failed to cleanup ${filePath}:`, error);
-      }
-    }
-  }
 }

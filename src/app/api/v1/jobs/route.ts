@@ -8,6 +8,7 @@ import { auth } from '@clerk/nextjs/server';
 import { runWithContext } from '@/lib/context';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import { z } from 'zod';
 
 const createJobSchema = z.object({
   videoUrl: z.string().url().refine(url => {
