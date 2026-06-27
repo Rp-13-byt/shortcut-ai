@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  CREATOR
+  PRO
+  ENTERPRISE
+  SUPPORT
+  ADMIN
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  clerkId       String         @unique
+  role          Role           @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  subscriptions Subscription[]
+  usageRecords  UsageRecord[]
+  jobs          VideoJob[]
+  settings      UserSettings?
+}
+
+model Plan {
+  id               String         @id @default(cuid())
+  name             String
+  price            Float
+  monthlyVideos    Int
+  storageLimit     BigInt
+  concurrentJobs   Int
+  maxVideoDuration Int
+  features         Json
+  subscriptions    Subscription[]
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  status               String
+  stripeSubscriptionId String   @unique
+  billingCycle         String
+  renewalDate          DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+}
+
+model UsageRecord {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month            DateTime
+  videosProcessed  Int      @default(0)
+  minutesProcessed Float    @default(0.0)
+  storageUsed      BigInt   @default(0)
+  apiCalls         Int      @default(0)
+}
+
+model VideoJob {
+  id             String      @id @default(cuid())
+  idempotencyKey String?     @unique
+  jobHash        String?     @unique
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sourceUrl      String
+  title          String?
+  duration       Float?
+  channel        String?
+  language       String?
+  thumbnail      String?
+  sourcePlatform String?
+  uploadDate     DateTime?
+
+  status         JobStatus   @default(QUEUED)
+  stage          JobStage    @default(DOWNLOAD)
+  failureReason  String?
+  
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  transcripts    Transcript[]
+  suggestions    ClipSuggestion[]
+  clips          GeneratedClip[]
+  metrics        ProcessingMetrics?
+
+  @@index([userId])
+  @@index([status])
+  @@index([jobHash])
+}
+
+enum JobStatus { QUEUED, PROCESSING, PENDING_APPROVAL, COMPLETED, FAILED, CANCELLED }
+enum JobStage  { DOWNLOAD, TRANSCRIBE, ANALYZE, APPROVAL, RENDER, UPLOAD, CLEANUP }
+
+model Transcript {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       VideoJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  provider  String
+  language  String
+  audioHash String?  @unique
+  rawText   String   @db.Text
+  segments  Json
+  cached    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+}
+
+model ClipSuggestion {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        VideoJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  analysisHash String? @unique
+  title      String
+  startTime  Float
+  endTime    Float
+  confidence Float
+  score      Float
+  reasoning  String   @db.Text
+  approvalState String @default("PENDING")
+
+  @@index([jobId])
+}
+
+model GeneratedClip {
+  id             String   @id @default(cuid())
+  idempotencyKey String?  @unique
+  jobId          String
+  job            VideoJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  duration       Float
+  aspectRatio    String   @default("9:16")
+  resolution     String   @default("1080x1920")
+  captionTheme   String   @default("default")
+  processingCost Float    @default(0.0)
+  renderVersion  Int      @default(1)
+  downloadCount  Int      @default(0)
+  
+  storageUrl     String?
+  thumbnail      String?
+  status         JobStatus @default(QUEUED)
+  createdAt      DateTime @default(now())
+
+  @@index([jobId])
+}
+
+model ProcessingMetrics {
+  id                String   @id @default(cuid())
+  jobId             String   @unique
+  job               VideoJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  queueLatency      Float?
+  downloadTime      Float?
+  transcriptionTime Float?
+  analysisTime      Float?
+  renderTime        Float?
+  uploadTime        Float?
+  totalTime         Float?
+  
+  workerId          String?
+  retryCount        Int      @default(0)
+
+  @@index([jobId])
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+}
